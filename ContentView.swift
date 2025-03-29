@@ -8,54 +8,98 @@
 import SwiftUI
 import SwiftData
 
+struct ToDoModel: Identifiable {
+    let id = UUID()
+    var title: String
+    var isComplete: Bool
+}
+
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @State var todos = [ToDoModel(title:"Homework", isComplete: false)]
+    @State var showAddToDo: Bool = false
+    @State var newToDoTitle: String = ""
+    
+    init () {
+        let appearance = UINavigationBarAppearance()
+        appearance.titleTextAttributes = [.foregroundColor: UIColor(named: "ThirdColor") ?? UIColor.black]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor(named: "ThirdColor") ?? UIColor.black]
+        UINavigationBar.appearance().standardAppearance = appearance
+       // UINavigationBar.appearance().scrollEdgeAppearance = appearance
+    }
+    
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+        NavigationStack {
+            VStack {
+                ForEach(todos.indices, id: \.self) { idx in
+                    Button {
+                        withAnimation {
+                            todos[idx].isComplete.toggle()
+                        }
                     } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                        HStack{
+                            Image(systemName:  todos[idx].isComplete ? "checkmark.circle.fill" : "circle")
+                            Text( todos[idx].title)
+                                .strikethrough(todos[idx].isComplete, color: Color.gray)
+                            
+                            
+                        }
+                        .foregroundColor(Color.main)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color(.secondary))
+                        )
+                    }
+                    
+                }
+                
+            }
+            .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color(.background))
+                .navigationTitle("To Do List")
+                .toolbar {Button {
+                    showAddToDo = true
+                    
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(Color.third)
+                        .font(.title2)
+                }
+                }
+            // adding new items to to do leist
+                .alert("Add Item", isPresented: $showAddToDo) {
+                    
+                    VStack {
+                        TextField("Enter Item", text: $newToDoTitle)
+                        HStack {
+                            Button(role: .cancel) {
+                                showAddToDo = false
+                                newToDoTitle = ""
+                            } label: {
+                                Text("Cancel")
+                                    .foregroundStyle(.red)
+                                
+                            }
+                            Button {
+                                if newToDoTitle.count > 2 {
+                                    todos.append(ToDoModel(title: newToDoTitle, isComplete: false))
+                                }
+                            } label: {
+                                Text("Done")
+                                    .foregroundStyle(.red)
+                                
+                            }
+                        }
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
         }
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        
 }
