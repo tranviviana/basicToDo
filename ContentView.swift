@@ -64,14 +64,7 @@ struct ContentView: View {
                                     .fill(Color(.second))
                             )
                         }
-                        .contextMenu {
-                            Button {
-                                deleteItem(todo: todos[idx])
-                            } label: {
-                                Image(systemName: "trash.fill")
-                                Text("Delete")
-                            }
-                        }
+                        
                        
                     }
                     
