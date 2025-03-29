@@ -8,14 +8,22 @@
 import SwiftUI
 import SwiftData
 
-struct ToDoModel: Identifiable {
-    let id = UUID()
+struct ToDoModel: Identifiable , Codable{
+    let id : Int?
+    var createdAt: Date = Date()
     var title: String
     var isComplete: Bool
+    var userId: UUID
+    enum CodingKeys: String, CodingKey {
+        case id, title
+        case isComplete = "is_complete"
+        case createdAt = "created_at"
+        case userId = "user_id"
+    }
 }
 
 struct ContentView: View {
-    @State var todos = [ToDoModel(title:"Homework", isComplete: false)]
+    @State var todos = [ToDoModel(id: nil, createdAt: .now, title:"Homework", isComplete: false, userId: UUID(uuidString: "67e56a46-6818-4748-aadc-6acfb34339ec")!)]
     @State var showAddToDo: Bool = false
     @State var newToDoTitle: String = ""
     
@@ -29,34 +37,47 @@ struct ContentView: View {
     
     var body: some View {
         NavigationStack {
-            VStack {
-                ForEach(todos.indices, id: \.self) { idx in
-                    Button {
-                        withAnimation {
-                            todos[idx].isComplete.toggle()
+            ScrollView {
+                VStack {
+                    ForEach(todos.indices, id: \.self) { idx in
+                        Button {
+                            withAnimation {
+                                todos[idx].isComplete.toggle()
+                                updateTodo(todos[idx])
+                            }
+                        } label: {
+                            HStack{
+                                Image(systemName:  todos[idx].isComplete ? "checkmark.circle.fill" : "circle")
+                                Text( todos[idx].title)
+                                    .strikethrough(todos[idx].isComplete, color: Color.gray)
+                                
+                                
+                            }
+                            .foregroundColor(Color.main)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .ignoresSafeArea()
+                            .scrollIndicators(.hidden)
+                            .padding()
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color(.second))
+                            )
                         }
-                    } label: {
-                        HStack{
-                            Image(systemName:  todos[idx].isComplete ? "checkmark.circle.fill" : "circle")
-                            Text( todos[idx].title)
-                                .strikethrough(todos[idx].isComplete, color: Color.gray)
-                            
-                            
+                        .contextMenu {
+                            Button {
+                                deleteItem(todo: todos[idx])
+                            } label: {
+                                Image(systemName: "trash.fill")
+                                Text("Delete")
+                            }
                         }
-                        .foregroundColor(Color.main)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(Color(.secondary))
-                        )
+                       
                     }
                     
                 }
-                
             }
-            .padding()
+                .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(.background))
                 .navigationTitle("To Do List")
@@ -69,7 +90,7 @@ struct ContentView: View {
                         .font(.title2)
                 }
                 }
-            // adding new items to to do leist
+                // adding new items to to do leist
                 .alert("Add Item", isPresented: $showAddToDo) {
                     
                     VStack {
@@ -84,9 +105,9 @@ struct ContentView: View {
                                 
                             }
                             Button {
-                                if newToDoTitle.count > 2 {
-                                    todos.append(ToDoModel(title: newToDoTitle, isComplete: false))
-                                }
+                               
+                                    didAddItem()
+                                
                             } label: {
                                 Text("Done")
                                     .foregroundStyle(.red)
@@ -95,9 +116,49 @@ struct ContentView: View {
                         }
                     }
                 }
+            }
+        }
+    func didAddItem() {
+        if newToDoTitle.count > 2 {
+            let todo = ToDoModel(id: nil, createdAt: .now, title: newToDoTitle, isComplete: false, userId: UUID(uuidString: "67e56a46-6818-4748-aadc-6acfb34339ec")!)
+            Task {
+                do  {
+                    let returnedItem = try await SupabaseService.shared.postTodoItem(todo)
+                    todos.append(returnedItem)
+                    newToDoTitle = ""
+                } catch {
+                    print(error.localizedDescription)
+                }
+            }
+           
         }
     }
+    func updateTodo(_ todo: ToDoModel) {
+        Task {
+            do {
+                try await SupabaseService.shared.updateTodoItem(todo)
+            } catch {
+                print(error.localizedDescription)
+            }
+        }
+    }
+    func deleteItem(_ todo: ToDoModel) {
+        Task {
+            do {
+                
+                guard let id = todo.id
+                else { return }
+                print(id)
+                try await SupabaseService.shared.deleteTodo(id: id)
+                todos.removeAll { $0.id == todo.id }
+            } catch {
+                print(error.localizedDescription)
+            }
+        }
+    }
+   
 }
+
 
 #Preview {
     ContentView()
